@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>To-Do List with Local Storage</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f3f4f6;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      padding: 30px;
+    }
+
+    .container {
+      background: #fff;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      width: 400px;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h2 {
+      margin: 0 0 20px;
+      text-align: center;
+      color: #333;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .input-group input, .input-group button {
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 10px;
+      outline: none;
+    }
+
+    .input-group button {
+      border: none;
+      background: #4f46e5;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .input-group button:hover {
+      background: #4338ca;
+    }
+
+    .filters {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .filters button {
+      border: none;
+      background: #e5e7eb;
+      padding: 5px 12px;
+      margin: 0 3px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .filters button.active {
+      background: #4f46e5;
+      color: #fff;
+    }
+
+    .date-section {
+      margin-bottom: 15px;
+    }
+
+    .date-section h3 {
+      margin: 10px 0;
+      font-size: 16px;
+      color: #111827;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 5px;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    li {
+      background: #f9fafb;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      animation: slideIn 0.3s ease-in-out;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    li.completed span {
+      text-decoration: line-through;
+      color: #9ca3af;
+    }
+
+    li input[type="checkbox"] {
+      margin-right: 10px;
+      cursor: pointer;
+    }
+
+    .actions button {
+      border: none;
+      background: none;
+      margin-left: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #6b7280;
+      transition: color 0.2s;
+    }
+
+    .actions button:hover {
+      color: #111827;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>📌 To-Do List</h2>
+    <div class="input-group">
+      <input type="text" id="taskInput" placeholder="Add new task...">
+      <input type="date" id="taskDate">
+      <button onclick="addTask()">Add Task</button>
+    </div>
+
+    <div class="filters">
+      <button onclick="setFilter('all')" class="active">All</button>
+      <button onclick="setFilter('pending')">Pending</button>
+      <button onclick="setFilter('completed')">Completed</button>
+    </div>
+
+    <div id="taskContainer"></div>
+  </div>
+
+  <script>
+    let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    let filter = "all";
+
+    function saveTasks() {
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+    }
+
+    function renderTasks() {
+      const container = document.getElementById("taskContainer");
+      container.innerHTML = "";
+
+      // Group tasks by date
+      const grouped = {};
+      tasks.forEach((t, i) => {
+        if (filter === "all" || (filter === "completed" && t.completed) || (filter === "pending" && !t.completed)) {
+          if (!grouped[t.date]) grouped[t.date] = [];
+          grouped[t.date].push({ ...t, index: i });
+        }
+      });
+
+      // Render sections date-wise
+      Object.keys(grouped).sort().forEach(date => {
+        const section = document.createElement("div");
+        section.className = "date-section";
+
+        const heading = document.createElement("h3");
+        heading.textContent = date || "No Date";
+        section.appendChild(heading);
+
+        const ul = document.createElement("ul");
+
+        grouped[date].forEach(task => {
+          const li = document.createElement("li");
+          li.className = task.completed ? "completed" : "";
+
+          const label = document.createElement("label");
+          label.style.flex = "1";
+          label.style.display = "flex";
+          label.style.alignItems = "center";
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = task.completed;
+          checkbox.onchange = () => toggleTask(task.index);
+
+          const span = document.createElement("span");
+          span.textContent = task.text;
+
+          label.appendChild(checkbox);
+          label.appendChild(span);
+
+          const actions = document.createElement("div");
+          actions.className = "actions";
+
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "✏️";
+          editBtn.onclick = () => editTask(task.index);
+
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "🗑️";
+          delBtn.onclick = () => deleteTask(task.index);
+
+          actions.appendChild(editBtn);
+          actions.appendChild(delBtn);
+
+          li.appendChild(label);
+          li.appendChild(actions);
+          ul.appendChild(li);
+        });
+
+        section.appendChild(ul);
+        container.appendChild(section);
+      });
+    }
+
+    function addTask() {
+      const input = document.getElementById("taskInput");
+      const dateInput = document.getElementById("taskDate");
+      const text = input.value.trim();
+      const date = dateInput.value;
+
+      if (text) {
+        tasks.push({ text, date, completed: false });
+        input.value = "";
+        saveTasks();
+        renderTasks();
+      }
+    }
+
+    function toggleTask(index) {
+      tasks[index].completed = !tasks[index].completed;
+      saveTasks();
+      renderTasks();
+    }
+
+    function editTask(index) {
+      const newText = prompt("Edit task:", tasks[index].text);
+      if (newText !== null) {
+        tasks[index].text = newText.trim();
+        saveTasks();
+        renderTasks();
+      }
+    }
+
+    function deleteTask(index) {
+      tasks.splice(index, 1);
+      saveTasks();
+      renderTasks();
+    }
+
+    function setFilter(value) {
+      filter = value;
+      document.querySelectorAll(".filters button").forEach(btn => btn.classList.remove("active"));
+      document.querySelector(`.filters button[onclick="setFilter('${value}')"]`).classList.add("active");
+      renderTasks();
+    }
+
+    renderTasks();
+  </script>
+</body>
+</html>
